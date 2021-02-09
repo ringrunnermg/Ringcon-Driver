@@ -170,7 +170,7 @@ wxCheckBox* gyroCheckBox;
 int subloop = 0;
 
 int Ringcon = 0x0A;
-int prevringcon = 0x0A;
+int prevRingcon = 0x0A;
 int ringconcounter = 0;
 
 #define runarraylength 50
@@ -185,6 +185,12 @@ float validpitch = 0.00;
 
 bool leftmousedown = false;
 bool rightmousedown = false;
+float squatmousemult = 1; //Slow down mouse movement depending on how far you squat. Makes Ringcon clicking easier.
+
+bool p1ready = false;
+bool p2ready = false;
+bool p3ready = false;
+bool p4ready = false; //These are to ensure the L and R buttons are ready before sending to the right controller (combined joycons option only)
 
 //Init VigEm
 const auto client = vigem_alloc();
@@ -193,12 +199,11 @@ PVIGEM_TARGET pad1 = 0;
 PVIGEM_TARGET pad2 = 0;
 PVIGEM_TARGET pad3 = 0;
 PVIGEM_TARGET pad4 = 0;
-XUSB_REPORT report1;
-XUSB_REPORT report2;
-XUSB_REPORT report3;
-XUSB_REPORT report4;
+XUSB_REPORT report;
 WORD remappedbtnsr=0;
 WORD remappedbtnsl=0;
+BYTE RightTrigger = 0;
+BYTE LeftTrigger = 0;
 int MaxStick = 32767;
 
 LONG sThumbLX = 0;
@@ -208,12 +213,12 @@ SHORT sThumbRY = 0;
 
 struct Settings {
 
-	// Enabling this combines both JoyCons to a single vJoy Device(#1)
+	// Enabling this combines both JoyCons to a single Vigem Device
 	// when combineJoyCons == false:
-	// JoyCon(L) is mapped to vJoy Device #1
-	// JoyCon(R) is mapped to vJoy Device #2
+	// JoyCon(L) is mapped to Vigem Device #1
+	// JoyCon(R) is mapped to Vigem Device #2
 	// when combineJoyCons == true:
-	// JoyCon(L) and JoyCon(R) are mapped to vJoy Device #1
+	// JoyCon(L) and JoyCon(R) are mapped to Vigem Device #1
 	bool combineJoyCons = false;
 
 	bool reverseX = false;// reverses joystick x (both sticks)
@@ -225,6 +230,7 @@ struct Settings {
 
 	// enables motion controls
 	bool enableGyro = false;
+	bool squatSlowsMouse = false;
 
 	// gyroscope (mouse) sensitivity:
 	float gyroSensitivityX = 150.0f;
@@ -250,10 +256,6 @@ struct Settings {
 
 	// so that you don't rapidly toggle the gyro controls every frame:
 	bool canToggleGyro = true;
-
-
-	// enables 3D gyroscope visualizer
-	//bool gyroWindow = false;
 
 	// plays a version of the mario theme by vibrating
 	// the first JoyCon connected.
@@ -449,13 +451,13 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			{
 
 				// get roll:
-				jc->gyro.roll = (float)((uint16_to_int16(packet[23] | (packet[24] << 8) & 0xFF00)) - jc->sensor_cal[1][0]) * jc->gyro_cal_coeff[0]; //23 24 was working, now not so much
+				jc->gyro.roll = (float)((uint16_to_int16(packet[35] | (packet[36] << 8) & 0xFF00)) - jc->sensor_cal[1][0]) * jc->gyro_cal_coeff[0]; //23 24 was working
 
 				// get pitch:
-				jc->gyro.pitch = (float)((uint16_to_int16(packet[19] | (packet[20] << 8) & 0xFF00)) - jc->sensor_cal[1][1]) * jc->gyro_cal_coeff[1]; // 19 20 was working
+				jc->gyro.pitch = (float)((uint16_to_int16(packet[31] | (packet[32] << 8) & 0xFF00)) - jc->sensor_cal[1][1]) * jc->gyro_cal_coeff[1]; // 19 20 was working
 
 				// get yaw:
-				jc->gyro.yaw = (float)((uint16_to_int16(packet[21] | (packet[22] << 8) & 0xFF00)) - jc->sensor_cal[1][2]) * jc->gyro_cal_coeff[2]; // 21 22 was working
+				jc->gyro.yaw = (float)((uint16_to_int16(packet[33] | (packet[34] << 8) & 0xFF00)) - jc->sensor_cal[1][2]) * jc->gyro_cal_coeff[2]; // 21 22 was working
 
 				// Note: All of the below orientations are from the point of view of the ringcon. May not line up with official terminology.
 				//13-14 Roll
@@ -468,7 +470,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 				//27-28 Pitch centred at horizontal - up = -, down = +
 				//29-30 Pitch centred at vertical - up = -, down = +
 				//31-32, 33-34, 35-36 arebouncing around but have something to do with the gyro. maybe i need a single byte?
-				//printf("%f      %f     ", jc->gyro.roll, jc->gyro.yaw);
+				printf("%f      %f     %f", jc->gyro.roll, jc->gyro.yaw, jc->gyro.pitch);
 			}
 		}
 		else {
@@ -552,14 +554,17 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			//Ringcon logic - Default values - int prevringcon = 0x0A; int ringconcounter = 0;
 
 			Ringcon = packet[40];
-
+			
+			if (Ringcon == 0x00) { //The Ringcon reading has started randomly putting zero in to the reading, I must not be initializing it properly. This is a hack to get around that.
+				Ringcon = prevRingcon;
+			}
 
 			if (settings.RingconFullRH || settings.RingconFullLH) { //The sensor readings change if it is being held sideways
 				if (Ringcon == 0x0A || Ringcon == 0x09 || Ringcon == 0x08 || Ringcon == 0x07) { //Deadzone
 					ringconcounter = 0;
 				}
 
-				if (Ringcon == 0x01 || Ringcon == 0x00 || Ringcon == 0xFF || Ringcon == 0xFE) {
+				if (Ringcon == 0x01 || Ringcon == 0xFF || Ringcon == 0xFE) {
 					heavypress = false; //turn off heavy press, may damage Ringcon as it goes outside the flex range
 					//ringconcounter = -1;
 				}
@@ -580,10 +585,10 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 					//}
 				}
 				if (Ringcon <= 0x0C && Ringcon >= 0x0B && ringconcounter != -1) {
-					if (Ringcon > prevringcon && ringconcounter < 10) {
+					if (Ringcon > prevRingcon && ringconcounter < 10) {
 						ringconcounter = 0;
 					}
-					else if (Ringcon == prevringcon && ringconcounter < 10) {
+					else if (Ringcon == prevRingcon && ringconcounter < 10) {
 						ringconcounter++;
 					}
 					else {
@@ -606,10 +611,10 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 					ringconcounter = -1;
 				}
 				if (Ringcon >= 0x0C && Ringcon <= 0x10 && ringconcounter != -1) {
-					if (Ringcon > prevringcon && ringconcounter < 10) {
+					if (Ringcon > prevRingcon && ringconcounter < 10) {
 						ringconcounter = 0;
 					}
-					else if (Ringcon == prevringcon && ringconcounter < 10) {
+					else if (Ringcon == prevRingcon && ringconcounter < 10) {
 						ringconcounter++;
 					}
 					else {
@@ -618,10 +623,10 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 					}
 				}
 				if (Ringcon <= 0x07 && Ringcon >= 0x04 && ringconcounter != -1) {
-					if (Ringcon < prevringcon && ringconcounter < 10) {
+					if (Ringcon < prevRingcon && ringconcounter < 10) {
 						ringconcounter = 0;
 					}
-					else if (Ringcon == prevringcon && ringconcounter < 10) {
+					else if (Ringcon == prevRingcon && ringconcounter < 10) {
 						ringconcounter++;
 					}
 					else {
@@ -631,7 +636,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 				}
 			}
 
-			prevringcon = Ringcon;
+			prevRingcon = Ringcon;
 			//printf("%i \n\n", Ringcon);
 		}
 
@@ -691,8 +696,19 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 				squatvalue = 0;
 			}
 
+			if (settings.squatSlowsMouse) {
+				if (jc->accel.z < 8.0) {
+					squatmousemult = 1 - (jc->accel.z * 0.1);
+				}
+				else {
+					squatmousemult = 0;
+				}
+			} else {
+				squatmousemult = 1;
+			}
+
 			//Mouse buttons
-			if (settings.enableGyro) {
+			if (settings.enableGyro && !settings.combineJoyCons) {
 				if (jc->buttons & (1 << 7) && !leftmousedown) { //ZL controls left mouse button
 					MC.LeftClickDown();
 					leftmousedown = true;
@@ -730,19 +746,19 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			//Ringcon stuff
 
 			if (lightpress == true) {
-				jc->buttons |= 1U << 5;
-			}
-
-			if (heavypress == true) {
-				jc->buttons |= 1U << 6;
-			}
-
-			if (lightpull == true) {
 				jc->buttons |= 1U << 4;
 			}
 
-			if (heavypull == true) {
+			if (heavypress == true) {
 				jc->buttons |= 1U << 7;
+			}
+
+			if (lightpull == true) {
+				jc->buttons |= 1U << 5;
+			}
+
+			if (heavypull == true) {
+				jc->buttons |= 1U << 6;
 			}
 
 
@@ -759,20 +775,21 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			}
 
 			//Mouse buttons
+			printf("%i\n", Ringcon);
 			if (settings.enableGyro) {
-				if (jc->buttons & (1 << 7) && !leftmousedown) { //ZR controls left mouse button
+				if ((jc->buttons & (1 << 7) || Ringcon >= 0x0C) && !leftmousedown) { //ZR controls left mouse button
 					MC.LeftClickDown();
 					leftmousedown = true;
 				}
-				if (!(jc->buttons & (1 << 7)) && leftmousedown) {
+				if (!(jc->buttons & (1 << 7) || Ringcon >= 0x0C) && leftmousedown) {
 					MC.LeftClickUp();
 					leftmousedown = false;
 				}
-				if (jc->buttons & (1 << 6) && !rightmousedown) { //R controls right mouse button
+				if ((jc->buttons & (1 << 6) || lightpull || heavypull) && !rightmousedown) { //R controls right mouse button
 					MC.RightClickDown();
 					rightmousedown = true;
 				}
-				if (!(jc->buttons & (1 << 6)) && rightmousedown) {
+				if (!(jc->buttons & (1 << 6) || lightpull || heavypull) && rightmousedown) {
 					MC.RightClickUp();
 					rightmousedown = false;
 				}
@@ -848,7 +865,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 }
 
 
-void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
+void updateVigEmDevice2(Joycon* jc) { 
 
 	UINT DevID;
 
@@ -859,7 +876,6 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 	// Set destination Vigem device
 	DevID = jc->VigemNumber;
 	id = (BYTE)DevID;
-	//report.bDevice = id;
 
 	if (DevID == 0 && settings.debugMode) {
 		printf("something went very wrong D:\n");
@@ -871,8 +887,18 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 		sThumbLY = MaxStick * (jc->stick.CalY);
 	}
 	if (jc->left_right== 2) {
-		sThumbRX = MaxStick * (jc->stick.CalX);
-		sThumbRY = MaxStick * (jc->stick.CalY);
+		if (settings.RingconFullRH) {
+			sThumbRX = -MaxStick * (jc->stick.CalX);
+			sThumbRY = -MaxStick * (jc->stick.CalY);
+		}
+		else if (settings.RingconFullLH) {
+			sThumbRX = MaxStick * (jc->stick.CalX);
+			sThumbRY = MaxStick * (jc->stick.CalY);
+		}
+		else {
+			sThumbRY = -MaxStick * (jc->stick.CalX);
+			sThumbRX = MaxStick * (jc->stick.CalY);
+		}
 	}
 	// pro controller:
 	if (jc->left_right == 3) {
@@ -881,26 +907,6 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 		sThumbRX = MaxStick * (jc->stick2.CalX);
 		sThumbRY = MaxStick * (jc->stick2.CalY);
 	}
-
-
-	/*if (jc->deviceNumber == 0) {
-		sThumbLX = x;
-		sThumbLY = y;
-	}
-	else if (jc->deviceNumber == 1) {
-		sThumbRX = rx;
-		sThumbRY = ry;
-	}
-	// pro controller:
-	if (jc->left_right == 3) {
-		// both sticks:
-		sThumbLX = x;
-		sThumbLY = y;
-		sThumbRX = rx;
-		sThumbRY = ry;
-	}*/
-
-	//report.wAxisZ = z;// update z with 16384
 
 
 	// prefer left joycon for gyroscope controls:
@@ -1051,10 +1057,10 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 
 		//printf("%f   \n\n", yaw); //Good for Ringcon sideways, right handed. 
 
-		printf("%.0f      %.0f       %.0f      %.0i     \n\n", jc->gyro.roll, jc->gyro.pitch, jc->gyro.yaw, Ringcon);
+		//printf("%.0f      %.0f       %.0f      %.0i     \n\n", jc->gyro.roll, jc->gyro.pitch, jc->gyro.yaw, Ringcon);
 
-		float relX2 = -jc->gyro.yaw * settings.gyroSensitivityX;
-		float relY2 = jc->gyro.pitch * settings.gyroSensitivityY;
+		float relX2 = -jc->gyro.yaw * settings.gyroSensitivityX * squatmousemult;
+		float relY2 = jc->gyro.pitch * settings.gyroSensitivityY * squatmousemult;
 
 		relX2 /= 10;
 		relY2 /= 10;
@@ -1139,9 +1145,6 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 		}
 
 		if (settings.combineJoyCons) {
-			//report.wAxisZRot = 16384 + (jc->gyro.roll * mult);
-			//report.wSlider = 16384 + (jc->gyro.pitch * mult);
-			//report.wDial = 16384 + (jc->gyro.yaw * mult);
 			if (ringconattached) {
 				sThumbLX = (roll * joymult);
 				if (settings.RingconFullRH) {
@@ -1150,7 +1153,6 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 				else {
 					sThumbLY = (pitch * joymult);
 				}
-				//report.wSlider = 16384 + ((Ringcon - 10) * 1640);
 			}
 			else {
 				sThumbLX = (yaw * joymult);
@@ -1163,11 +1165,6 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 				//report.wSlider = 16384 + ((Ringcon - 10) * 1640); No space on the controller for this. This is the analog version of the Ringcon.
 			}
 		}
-		/*else {
-			report.s = 16384 + (jc->gyro.roll * mult);
-			report.sThumbRX = 16384 + (jc->gyro.pitch * mult);
-			report.sThumbRY = 16384 + (jc->gyro.yaw * mult);
-		}*/
 	}
 
 	// Set button data
@@ -1213,8 +1210,7 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 	XINPUT_GAMEPAD_B 	0x2000
 	XINPUT_GAMEPAD_X 	0x4000
 	XINPUT_GAMEPAD_Y	0x8000*/
-	BYTE RightTrigger = 0;
-	BYTE LeftTrigger = 0;
+
 	WORD remappedbtns = 0; 
 	if (!settings.combineJoyCons) {
 		if (jc->btns.left || jc->btns.a) {
@@ -1231,7 +1227,7 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 		}
 	}
 	else {
-		if (jc->deviceNumber == 0) {
+		if (jc->left_right == 1) {
 			remappedbtnsl = 0;
 			if (jc->btns.sr) { //run
 				remappedbtnsl += XINPUT_GAMEPAD_LEFT_THUMB;
@@ -1242,7 +1238,7 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 			if (jc->btns.up) {
 				remappedbtnsl += XINPUT_GAMEPAD_DPAD_UP;
 			}
-			if (jc->btns.down || jc->btns.minus) { //down or Squat
+			if (jc->btns.down) { 
 				remappedbtnsl += XINPUT_GAMEPAD_DPAD_DOWN;
 			}
 			if (jc->btns.left) {
@@ -1251,8 +1247,11 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 			if (jc->btns.right) {
 				remappedbtnsl += XINPUT_GAMEPAD_DPAD_RIGHT;
 			}
+			if (jc->btns.minus) { //Squat
+				remappedbtnsl += XINPUT_GAMEPAD_BACK;
+			}
 		}
-		if (jc->deviceNumber == 1) {
+		if (jc->left_right == 2) {
 			remappedbtnsr = 0;
 			if (jc->btns.sr) { //Lightpull
 				remappedbtnsr += XINPUT_GAMEPAD_LEFT_SHOULDER;
@@ -1273,19 +1272,15 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 				remappedbtnsr += XINPUT_GAMEPAD_A;
 			}
 			if (jc->btns.r) { //Heavypress
-				//report.bRightTrigger = 255;
 				RightTrigger = 255;
 			}
 			else {
-				//report.bRightTrigger = 0;
 				RightTrigger = 0;
 			}
 			if (jc->btns.zr) { //Heavypull
-				//report.bLeftTrigger = 255;
 				LeftTrigger = 255;
 			}
 			else {
-				//report.bLeftTrigger = 0;
 				LeftTrigger = 0;
 			}
 			if (jc->btns.home) {
@@ -1320,7 +1315,7 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 		sThumbRY = -sThumbRY;
 	}
 
-	printf("\n\n %i  %i   %i   %i   %i    %i", sThumbLX, sThumbLY, sThumbRX, sThumbRY, remappedbtnsl, remappedbtnsr);
+	//printf("\n\n %i  %i   %i   %i   %i    %i", sThumbLX, sThumbLY, sThumbRX, sThumbRY, remappedbtnsl, remappedbtnsr);
 	// Pro Controller:
 	//if (jc->left_right == 3) {
 	//	uint32_t combined = ((uint32_t)jc->buttons2 << 16) | jc->buttons;
@@ -1330,46 +1325,78 @@ void updateVigEmDevice2(Joycon* jc) { //Previously updatevJoyDevice2
 		//std::cout << num1 << " " << num2 << std::endl;
 	//}
 
+	//Work out what the report should be
+	if (settings.combineJoyCons) {
+		report.wButtons = remappedbtnsr + remappedbtnsl;
+		report.bLeftTrigger = LeftTrigger;
+		report.bRightTrigger = RightTrigger;
+		report.sThumbLX = sThumbLX;
+		report.sThumbLY = sThumbLY;
+		report.sThumbRX = sThumbRX;
+		report.sThumbRY = sThumbRY;
+	}
+	else {
+		report.wButtons = remappedbtns;
+		report.sThumbLX = sThumbLX;
+		report.sThumbLY = sThumbLY;
+	}
+
 	//Send data to Vigem
 	if (jc->VigemNumber == 1) {
-		report1.wButtons = remappedbtnsr + remappedbtnsl;
-		report1.bLeftTrigger = LeftTrigger;
-		report1.bRightTrigger = RightTrigger;		
-		report1.sThumbLX = sThumbLX;
-		report1.sThumbLY = sThumbLY;
-		report1.sThumbRX = sThumbRX;
-		report1.sThumbRY = sThumbRY;
-		vigem_target_x360_update(client, pad1, report1); //Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc. Each pad gets its own XUSB_Report report.
+		if (settings.combineJoyCons) {
+			if (p1ready) {
+				vigem_target_x360_update(client, pad1, report);
+				p1ready = !p1ready;
+			}
+			else {
+				p1ready = !p1ready;
+			}
+		}
+		else {
+			vigem_target_x360_update(client, pad1, report);
+		}//Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc.
 	}
 	if (jc->VigemNumber == 2) {
-		report2.wButtons = remappedbtnsr + remappedbtnsl;
-		report2.bLeftTrigger = LeftTrigger;
-		report2.bRightTrigger = RightTrigger;
-		report2.sThumbLX = sThumbLX;
-		report2.sThumbLY = sThumbLY;
-		report2.sThumbRX = sThumbRX;
-		report2.sThumbRY = sThumbRY;
-		vigem_target_x360_update(client, pad2, report2); //Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc. Each pad gets its own XUSB_Report report.
+		if (settings.combineJoyCons) {
+			if (p2ready) {
+				vigem_target_x360_update(client, pad2, report);
+				p2ready = !p2ready;
+			}
+			else {
+				p2ready = !p2ready;
+			}
+		}
+		else {
+			vigem_target_x360_update(client, pad2, report);
+		}//Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc.
 	}
 	if (jc->VigemNumber == 3) {
-		report3.wButtons = remappedbtnsr + remappedbtnsl;
-		report3.bLeftTrigger = LeftTrigger;
-		report3.bRightTrigger = RightTrigger;
-		report3.sThumbLX = sThumbLX;
-		report3.sThumbLY = sThumbLY;
-		report3.sThumbRX = sThumbRX;
-		report3.sThumbRY = sThumbRY;
-		vigem_target_x360_update(client, pad3, report3); //Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc. Each pad gets its own XUSB_Report report.
+		if (settings.combineJoyCons) {
+			if (p3ready) {
+				vigem_target_x360_update(client, pad3, report);
+				p3ready = !p3ready;
+			}
+			else {
+				p3ready = !p3ready;
+			}
+		}
+		else {
+			vigem_target_x360_update(client, pad3, report);
+		}//Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc.
 	}
 	if (jc->VigemNumber == 4) {
-		report4.wButtons = remappedbtnsr + remappedbtnsl;
-		report4.bLeftTrigger = LeftTrigger;
-		report4.bRightTrigger = RightTrigger;
-		report4.sThumbLX = sThumbLX;
-		report4.sThumbLY = sThumbLY;
-		report4.sThumbRX = sThumbRX;
-		report4.sThumbRY = sThumbRY;
-		vigem_target_x360_update(client, pad4, report4); //Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc. Each pad gets its own XUSB_Report report.
+		if (settings.combineJoyCons) {
+			if (p4ready) {
+				vigem_target_x360_update(client, pad4, report);
+				p4ready = !p4ready;
+			}
+			else {
+				p4ready = !p4ready;
+			}
+		}
+		else {
+			vigem_target_x360_update(client, pad4, report);
+		}//Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc.
 	}
 }
 
@@ -1389,7 +1416,7 @@ void parseSettings2() {
 	settings.gyroSensitivityX = stof(cfg["gyroSensitivityX"]);
 	settings.gyroSensitivityY = stof(cfg["gyroSensitivityY"]);
 
-	//settings.gyroWindow = (bool)stoi(cfg["gyroWindow"]);
+	settings.squatSlowsMouse = (bool)stoi(cfg["squatSlowsMouse"]);
 	settings.marioTheme = (bool)stoi(cfg["marioTheme"]);
 
 	settings.reverseX = (bool)stoi(cfg["reverseX"]);
@@ -1573,22 +1600,19 @@ init_start:
 		if (joycons[i].VigemNumber == 1 && joycons[i].deviceNumber == 0) {
 			pad1 = vigem_target_x360_alloc();
 			const auto pir1 = vigem_target_add(client, pad1);
-			XUSB_REPORT_INIT(&report1);
+			XUSB_REPORT_INIT(&report);
 		}
 		if (joycons[i].VigemNumber == 2 && joycons[i].deviceNumber == 0) {
 			pad2 = vigem_target_x360_alloc();
 			const auto pir2 = vigem_target_add(client, pad2);
-			XUSB_REPORT_INIT(&report2);
 		}
 		if (joycons[i].VigemNumber == 3 && joycons[i].deviceNumber == 0) {
 			pad3 = vigem_target_x360_alloc();
 			const auto pir3 = vigem_target_add(client, pad3);
-			XUSB_REPORT_INIT(&report3);
 		}
 		if (joycons[i].VigemNumber == 4 && joycons[i].deviceNumber == 0) {
 			pad4 = vigem_target_x360_alloc();
 			const auto pir4 = vigem_target_add(client, pad4);
-			XUSB_REPORT_INIT(&report4);
 		}
 	}
 
@@ -2219,9 +2243,9 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, wxT("Ringcon Driver by RingRunn
 	gyroCheckBox->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleGyro, this);
 	gyroCheckBox->SetValue(settings.enableGyro);
 
-	CB4 = new wxCheckBox(panel, wxID_ANY, wxT("Gyro Window"), FromDIP(wxPoint(190, 60)));
-	CB4->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleGyroWindow, this);
-	//CB4->SetValue(settings.gyroWindow);
+	CB4 = new wxCheckBox(panel, wxID_ANY, wxT("Squat Slows Mouse"), FromDIP(wxPoint(190, 60)));
+	CB4->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleSquatSlowsMouse, this);
+	CB4->SetValue(settings.squatSlowsMouse);
 	CB8 = new wxCheckBox(panel, wxID_ANY, wxT("Prefer Left JoyCon for Gyro Controls"), FromDIP(wxPoint(20, 80)));
 	CB8->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::togglePreferLeftJoyCon, this);
 	CB8->SetValue(settings.preferLeftJoyCon);
@@ -2321,7 +2345,7 @@ void MainFrame::onQuit2(wxCloseEvent&) {
 
 void MainFrame::onDonate(wxCommandEvent&) {
 	wxString alert;
-	alert.Printf("Thank you very much!\n\nI have a paypal at matt.cfosse@gmail.com\nBTC Address: 17hDC2X7a1SWjsqBJRt9mJb9fJjqLCwgzG\nETH Address: 0xFdcA914e1213af24fD20fB6855E89141DF8caF96\n");
+	alert.Printf("Thank you very much!\n\nTo show appreciation for the Ringcon functionality:\n I have a paypal at ringrunnermg@gmail.com\n\nTo show appreciation for the Joycon functionality:\nmfosse has a paypal at matt.cfosse@gmail.com\nBTC Address: 17hDC2X7a1SWjsqBJRt9mJb9fJjqLCwgzG\nETH Address: 0xFdcA914e1213af24fD20fB6855E89141DF8caF96\n");
 	wxMessageBox(alert);
 }
 
@@ -2333,8 +2357,8 @@ void MainFrame::toggleGyro(wxCommandEvent&) {
 	settings.enableGyro = !settings.enableGyro;
 }
 
-void MainFrame::toggleGyroWindow(wxCommandEvent&) {
-	//settings.gyroWindow = !settings.gyroWindow;
+void MainFrame::toggleSquatSlowsMouse(wxCommandEvent&) {
+	settings.squatSlowsMouse = !settings.squatSlowsMouse;
 }
 
 void MainFrame::toggleMario(wxCommandEvent&) {

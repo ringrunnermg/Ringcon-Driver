@@ -640,6 +640,8 @@ public:
 			return 0;
 		}
 
+		int Ringconretries = 0;
+
 	step1:
 
 		// Enable MCU data
@@ -652,11 +654,11 @@ public:
 			int retries = 0;
 			while (1) {
 				int res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 100; i++) {
+				/*for (int i = 0; i <= 100; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
 				printf("\n");
-				printf("\n");
+				printf("\n");*/
 				if (*(u16*)&buf[0xD] == 0x2280)
 					goto step3;
 
@@ -680,11 +682,11 @@ public:
 			int retries = 0;
 			while (1) {
 				int res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 60; i++) {
+				/*for (int i = 0; i <= 60; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
 				printf("\n");
-				printf("\n");
+				printf("\n");*/
 				if (buf[0] == 0x31) {
 					for (int i = 49; i <= 56; i++) {
 						printf("%i: %02x ", i, buf[i]);
@@ -732,20 +734,20 @@ public:
 			//pkt->subcmd_21_21.mcu_mode = 0x03; // MCU mode - 1: Standby, 4: NFC, 5: IR, 6: Initializing/FW Update?
 
 			buf[48] = mcu_crc8_calc(buf + 12, 36);
-			for (int i = 0; i <= 48; i++) {
+			/*for (int i = 0; i <= 48; i++) {
 				printf("%i: %02x ", i, buf[i]);
 			}
-			printf("\n");
+			printf("\n");*/
 
 			res = hid_write(handle, buf, output_buffer_length);
 			int retries = 0;
 
 			while (1) {
 				res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 100; i++) {
+				/*for (int i = 0; i <= 100; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
-				printf("\n");
+				printf("\n");*/
 				if (buf[0] == 0x21) {
 					// *(u16*)buf[18]LE x04 in lower than 3.89fw, x05 in 3.89
 					// *(u16*)buf[20]LE x12 in lower than 3.89fw, x18 in 3.89
@@ -777,20 +779,20 @@ public:
 			timing_byte++;
 			pkt->subcmd = 0x01; //subcmd is in the right byte unlike the union stuff
 
-			for (int i = 0; i <= 48; i++) {
+			/*for (int i = 0; i <= 48; i++) {
 				printf("%i: %02x ", i, buf[i]);
 			}
-			printf("\n");
+			printf("\n");*/
 
 			res = hid_write(handle, buf, output_buffer_length);
 			int retries = 0;
 			while (1) {
 				res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 60; i++) {
+				/*for (int i = 0; i <= 60; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
 				printf("\n");
-				printf("\n");
+				printf("\n");*/
 				if (buf[0] == 0x31) {
 					// *(u16*)buf[52]LE x04 in lower than 3.89fw, x05 in 3.89
 					// *(u16*)buf[54]LE x12 in lower than 3.89fw, x18 in 3.89
@@ -824,22 +826,22 @@ public:
 
 			buf[48] = mcu_crc8_calc(buf + 12, 36);
 
-			for (int i = 0; i <= 48; i++) {
+			/*for (int i = 0; i <= 48; i++) {
 				printf("%i: %02x ", i, buf[i]);
 			}
 			printf("\n");
-			printf("\n");
+			printf("\n");*/
 
 			res = hid_write(handle, buf, output_buffer_length);
 			int retries = 0;
 
 			while (1) {
 				res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 100; i++) {
+				/*for (int i = 0; i <= 100; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
 				printf("\n");
-				printf("\n");
+				printf("\n");*/
 				if (buf[0] == 0x21) {
 					if (buf[15] == 0x09 && buf[17] == 0x01) // Mcu mode is external ready
 						goto step6;
@@ -853,8 +855,9 @@ public:
 	step6:
 
 		retries2 = 0;
+		printf("Get ext data 59.");
 		while (1) {
-			printf("Get ext data 59...\n");
+			printf(".");
 
 			static int output_buffer_length = 49; //CTCAER
 			int res = 0;
@@ -866,22 +869,22 @@ public:
 			timing_byte++;
 			buf[10] = 0x59;
 
-			for (int i = 0; i <= 48; i++) {
+			/*for (int i = 0; i <= 48; i++) {
 				printf("%i: %02x ", i, buf[i]);
 			}
 			printf("\n");
-			printf("\n");
+			printf("\n");*/
 
 			res = hid_write(handle, buf, output_buffer_length);
 			int retries = 0;
 
 			while (1) {
 				res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 100; i++) {
+				/*for (int i = 0; i <= 100; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
 				printf("\n");
-				printf("\n");
+				printf("\n");*/
 				if (buf[0] == 0x21) {
 					if (buf[14] == 0x59 && buf[16] == 0x20) { // Mcu mode is ringcon ready (Note:0x20 is the Ringcon ext device id - it may also be the fm_main_ver) No ringcon is buf[15]=fe. With ringcon buf[15]=0
 						goto step7;
@@ -914,23 +917,32 @@ public:
 		int retries = 0;
 		while (1) {
 			res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-			for (int i = 0; i <= 60; i++) {
+			/*for (int i = 0; i <= 60; i++) {
 				printf("%i: %02x ", i, buf[i]);
 			}
 			printf("\n");
-			printf("\n");
+			printf("\n");*/
 			if (buf[0] == 0x21) {
 				if (buf[14] == 0x40) {
 					//break;
 					printf("Enabling IMU data 1...\n");
-					buf[0] = 0x01; // Ringcon IMU enabled 
+					buf[0] = 0x02;
 					send_subcommand(0x01, 0x40, buf, 1);
-					goto step1;
+					buf[0] = 0x01;  
+					send_subcommand(0x01, 0x40, buf, 1);
+					Ringconretries++; //Was having issues with the Gyro being screwy sometimes.
+					if (Ringconretries <= 1) {
+						GetCalibrationData();
+						goto step1;
+					}
+					else {
+						break;
+					}
 				}
 			}
 			retries++;
 			if (retries > 20 || res == 0)
-				break;
+			break;
 		}
 
 		//unsigned long long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -954,7 +966,7 @@ public:
 			buf[14] = 0x06;
 			buf[19] = 0x1C;
 			buf[20] = 0x16;
-			/*buf[21] = 237;// 0xCD;//+
+			buf[21] = 237;// 0xCD;//+
 			buf[22] = 52;// 0xA6;//+
 			buf[23] = 54;// 0x2B;//+ These change but appear to be connected with the last values
 			buf[27] = 10;//timestampbuffer[0];// 27-32 = timestamp
@@ -975,28 +987,31 @@ public:
 			//21/10/20  92 6 3 37 6 0 0 0 0 28 22 205 166 43 0 0 0 197 20 147 187 160 13 0 0 4 0 0 0 0 0 0 0 144 168 193 166 43 0
 			//08/10/20  92 6 3 37 6 0 0 0 0 28 22 237 52  54 0 0 0 10 100  11 230 169 34 0 0 4 0 0 0 0 0 0 0 144 168 225 52  54 0
  
-  			for (int i = 0; i <= 48; i++) {
+  			/*for (int i = 0; i <= 48; i++) {
 				printf("%i: %02x ", i, buf[i]);
 			}
 			printf("\n");
-			printf("\n");
+			printf("\n");*/
 
 			res = hid_write(handle, buf, output_buffer_length);
 			int retries = 0;
 			while (1) {
 				res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 60; i++) {
+				/*for (int i = 0; i <= 60; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
 				printf("\n");
-				printf("\n");
+				printf("\n");*/
 				if (buf[0] == 0x21) {
 					if (buf[14] == 0x5C) { // Ringcon config set
 						goto step8;
 					}
-					if (buf[14] == 0x40) { // Sensor put to sleep for some reason. Try again.
-						goto step6;
-					}
+					/*if (buf[14] == 0x40) { // Sensor put to sleep for some reason. Try again.
+						printf("Enabling IMU data 1...\n");
+						buf[0] = 0x01; // Ringcon IMU enabled 
+						send_subcommand(0x01, 0x40, buf, 1); 
+						goto step1;
+					}*/
 				}
 				retries++;
 				if (retries > 8 || res == 0)
@@ -1022,22 +1037,22 @@ public:
 			buf[13] = 0x01;
 			buf[14] = 0x02;
 
-			for (int i = 0; i <= 48; i++) {
+			/*for (int i = 0; i <= 48; i++) {
 				printf("%i: %02x ", i, buf[i]);
 			}
 			printf("\n");
-			printf("\n");
+			printf("\n");*/
 
 			res = hid_write(handle, buf, output_buffer_length);
 			int retries = 0;
 
 			while (1) {
 				res = hid_read_timeout(handle, buf, sizeof(buf), 64);
-				for (int i = 0; i <= 63; i++) {
+				/*for (int i = 0; i <= 63; i++) {
 					printf("%i: %02x ", i, buf[i]);
 				}
 				printf("\n");
-				printf("\n");
+				printf("\n");*/
 				if (buf[0] == 0x21) {
 					if (buf[14] == 0x5A) {// Mcu mode is ringcon polling
 						goto step13;

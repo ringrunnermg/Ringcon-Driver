@@ -13,14 +13,14 @@
 class TestGLContext : public wxGLContext
 {
 public:
-	TestGLContext(wxGLCanvas* canvas);
+	/*TestGLContext(wxGLCanvas* canvas);
 
 	// render the cube showing it at given angles
 	void DrawRotatedCube(float xangle = 0, float yangle = 0);
 
 	void DrawRotatedCube(glm::fquat q);
 
-	void DrawRotatedCube(float xangle = 0, float yangle = 0, float zangle = 0);
+	void DrawRotatedCube(float xangle = 0, float yangle = 0, float zangle = 0);*/
 
 private:
 	// textures for the cube faces
@@ -143,7 +143,7 @@ public:
 	void toggleCombine(wxCommandEvent&);
 
 	void toggleGyro(wxCommandEvent&);
-	void toggleGyroWindow(wxCommandEvent&);
+	void toggleSquatSlowsMouse(wxCommandEvent&);
 	void toggleMario(wxCommandEvent&);
 
 	void toggleReverseX(wxCommandEvent&);
