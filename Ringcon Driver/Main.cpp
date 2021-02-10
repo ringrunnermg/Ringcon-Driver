@@ -1,98 +1,3 @@
-/*#define WIN32_LEAN_AND_MEAN t 
-#include <windows.h> t 
-#include <iostream> t 
-//
-// Optional depending on your use case
-//
-#include <Xinput.h> t
-
-//
-// The ViGEm API
-//
-#include <ViGEm/Client.h> t
-
-//
-// Link against SetupAPI t
-//
-#pragma comment(lib, "setupapi.lib") t
-
-int main() {
-    const auto client = vigem_alloc(); t
-
-    if (client == nullptr)
-    {
-        std::cerr << "Uh, not enough memory to do that?!" << std::endl;
-        return -1; c this had an error so I removed it
-    }
-    const auto retval = vigem_connect(client); t 
-
-    if (!VIGEM_SUCCESS(retval))
-    {
-        std::cerr << "ViGEm Bus connection failed with error code: 0x" << std::hex << retval << std::endl;
-        return -1; c this had an error so I removed it
-    }
-    //
-// Allocate handle to identify new pad
-//
-    const auto pad = vigem_target_x360_alloc(); 
-    const auto pad2 = vigem_target_x360_alloc();
-    const auto pad3 = vigem_target_x360_alloc();
-    const auto pad4 = vigem_target_x360_alloc();
-    //
-    // Add client to the bus, this equals a plug-in event
-    //
-	const auto pad = vigem_target_x360_alloc();
-    const auto pir = vigem_target_add(client, pad); 
-    const auto pir2 = vigem_target_add(client, pad2);
-    const auto pir3 = vigem_target_add(client, pad3);
-    const auto pir4 = vigem_target_add(client, pad4);
-
-    //
-    // Error handling
-    //
-    if (!VIGEM_SUCCESS(pir))
-    {
-        std::cerr << "Target plugin failed with error code: 0x" << std::hex << pir << std::endl;
-        return -1;
-    }
-
-    //
-    // Grab the input from a physical X36ß pad in this example
-    //
-    //XInputGetState(0, &state);
-    XUSB_REPORT report;
-    XUSB_REPORT_INIT(&report);
-    report.sThumbLX = 30000;
-    //
-    // The XINPUT_GAMEPAD structure is identical to the XUSB_REPORT structure
-    // so we can simply take it "as-is" and cast it.
-    //
-    // Call this function on every input state change e.g. in a loop polling
-    // another joystick or network device or thermometer or... you get the idea.
-    //
-    //vigem_target_x360_update(client, pad, *reinterpret_cast<XUSB_REPORT*>(&state.Gamepad));
-    vigem_target_x360_update(client, pad, report);
-
-    char cool = getchar();
-
-    report.sThumbLX = -30000;
-    vigem_target_x360_update(client, pad, report);
-    vigem_target_x360_update(client, pad3, report);
-
-    char hoo = getchar();
-    char holo = getchar();
-    //
-    // We're done with this pad, free resources (this disconnects the virtual device)
-    //
-    vigem_target_remove(client, pad);
-    vigem_target_free(pad);
-
-    vigem_disconnect(client);
-    vigem_free(client);
-}*/
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #pragma comment(lib, "user32.lib")
@@ -470,7 +375,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 				//27-28 Pitch centred at horizontal - up = -, down = +
 				//29-30 Pitch centred at vertical - up = -, down = +
 				//31-32, 33-34, 35-36 arebouncing around but have something to do with the gyro. maybe i need a single byte?
-				printf("%f      %f     %f", jc->gyro.roll, jc->gyro.yaw, jc->gyro.pitch);
+				//printf("%f      %f     %f", jc->gyro.roll, jc->gyro.yaw, jc->gyro.pitch);
 			}
 		}
 		else {
@@ -492,47 +397,6 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			jc->gyro.roll -= jc->gyro.offset.roll;
 			jc->gyro.pitch -= jc->gyro.offset.pitch;
 			jc->gyro.yaw -= jc->gyro.offset.yaw;
-
-			//printf("%f      %f \n", jc->gyro.roll, jc->gyro.yaw);
-			//tracker.counter1++;
-			//if (tracker.counter1 > 10) {
-			//	tracker.counter1 = 0;
-			//	printf("%.3f %.3f %.3f\n", abs(jc->gyro.roll), abs(jc->gyro.pitch), abs(jc->gyro.yaw));
-			//}
-		}
-
-		/*//Print first 60 packets - NFC packets go up to 361
-		for (int i = 0; i <= 60; i++) {
-			printf("%i: %02x ", i, packet[i]);
-		}
-		printf("\n\n");
-		Sleep(1000);*/ //-------------------------------------------------------------------------------------------------------------------------------------------------debug
-
-		//buf[0] = subloop;
-		//jc->send_subcommand(0x01, 0x24, buf, 1);
-		//subloop++;
-
-			//buf[0] = 0x06; // Enabled empty 0, 5, 6 Not 1 49:1 56:1 2 49:2A 56:0
-//send_subcommand(0x01, 0x24, buf, 1);
-
-		//hex_dump(gyro_data, 20);
-
-		if (jc->left_right == 1) {
-			//hex_dump(gyro_data, 20);
-			//hex_dump(packet+12, 20);
-			//printf("x: %f, y: %f, z: %f\n", tracker.anglex, tracker.angley, tracker.anglez);
-			//printf("%04x\n", jc->stick.x);
-			//printf("%f\n", jc->stick.CalX);
-			//printf("%d\n", jc->gyro.yaw);
-			//printf("%02x\n", jc->gyro.roll);
-			//printf("%04x\n", jc->gyro.yaw);
-			//printf("%04x\n", jc->gyro.roll);
-			//printf("%f\n", jc->gyro.roll);
-			//printf("%d\n", accelXA);
-			//printf("%d\n", jc->buttons);
-			//printf("%.4f\n", jc->gyro.pitch);
-			//printf("%04x\n", accelX);
-			//printf("%02x %02x\n", rollA, rollB);
 		}
 
 	}
@@ -775,7 +639,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			}
 
 			//Mouse buttons
-			printf("%i\n", Ringcon);
+			//printf("%i\n", Ringcon);
 			if (settings.enableGyro) {
 				if ((jc->buttons & (1 << 7) || Ringcon >= 0x0C) && !leftmousedown) { //ZR controls left mouse button
 					MC.LeftClickDown();
@@ -1315,16 +1179,6 @@ void updateVigEmDevice2(Joycon* jc) {
 		sThumbRY = -sThumbRY;
 	}
 
-	//printf("\n\n %i  %i   %i   %i   %i    %i", sThumbLX, sThumbLY, sThumbRX, sThumbRY, remappedbtnsl, remappedbtnsr);
-	// Pro Controller:
-	//if (jc->left_right == 3) {
-	//	uint32_t combined = ((uint32_t)jc->buttons2 << 16) | jc->buttons;
-	//	btns = combined;
-		//std::bitset<16> num1(jc->buttons);
-		//std::bitset<16> num2(jc->buttons2);
-		//std::cout << num1 << " " << num2 << std::endl;
-	//}
-
 	//Work out what the report should be
 	if (settings.combineJoyCons) {
 		report.wButtons = remappedbtnsr + remappedbtnsl;
@@ -1517,20 +1371,6 @@ void start() {
 	}
 
 
-	if (settings.writeDebugToFile) { //orig: if (settings.writeDebugToFile || settings.writeCastToFile) {
-
-		// find a debug file to output to:
-		/*int fileNumber = 0;
-		std::string name = std::string("output-") + std::to_string(fileNumber) + std::string(".txt");
-		while (exists_test0(name)) {
-			fileNumber += 1;
-			name = std::string("output-") + std::to_string(fileNumber) + std::string(".txt");
-		}
-
-		settings.outputFile = fopen(name.c_str(), "w");*/
-	}
-
-
 init_start:
 
 	devs = hid_enumerate(JOYCON_VENDOR, 0x0);
@@ -1551,14 +1391,6 @@ init_start:
 				Joycon jc = Joycon(cur_dev);
 				joycons.push_back(jc);
 			}
-
-			// charging grip:
-			//if (cur_dev->product_id == JOYCON_CHARGING_GRIP) {
-			//	Joycon jc = Joycon(cur_dev);
-			//	settings.usingBluetooth = false;
-			//	settings.combineJoyCons = true;
-			//	joycons.push_back(jc);
-			//}
 
 		}
 
@@ -1651,24 +1483,6 @@ init_start:
 	for (int i = 0; i < joycons.size(); ++i) {
 		Joycon* jc = &joycons[i];
 		if (jc->left_right == 2 && jc->ringconattached) {
-			//Enable IMU data for Ringcon on Joycon R
-			//printf("Disabling IMU data 3...\n");
-			//buf[0] = 0x02; // Enabled
-			//jc->send_subcommand(0x01, 0x40, buf, 1);
-			//printf("Enabling IMU data 1...\n");
-			//buf[0] = 0x01; // Enabled
-			//jc->send_subcommand(0x01, 0x40, buf, 1);
-			//jc->GetCalibrationData();
-			//printf("Disabling IMU data 1...\n");
-			//buf[0] = 0x00; // Enabled
-			//jc->send_subcommand(0x01, 0x40, buf, 1);
-			//printf("Enabling IMU data 3...\n");
-			//buf[0] = 0x03; // Enabled
-			//jc->send_subcommand(0x01, 0x40, buf, 1);
-			//printf("Set Ext Config 58 - 4 4 12 2...\n");
-			//jc->set_ext_config(0x04, 0x04, 0x12, 0x02);
-			//printf("Set Ext Config 58 - 4 4 13 2...\n");
-			//jc->set_ext_config(0x04, 0x04, 0x13, 0x02);
 			ringconattached = true;
 		}
 	}
@@ -1683,6 +1497,7 @@ init_start:
 		}
 	}
 
+	// Mfosses clever Mario theme
 	// Plays the Mario theme on the JoyCons:
 	// I'm bad with music I just did this by
 	// using a video of a piano version of the mario theme.
