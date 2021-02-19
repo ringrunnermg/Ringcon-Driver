@@ -1,6 +1,12 @@
 # Ringcon-Driver
 Play your favourite PC games with Nintendos impressive Ring fit controller system. Attach one Joycon to the Ring-Con, attach the other to your leg with the strap (herein called the strapcon). This driver converts the inputs to correspond with an Xbox 360 controller which can be used on most pc games.
 
+
+# Installing the software
+ * Download the latest version from the releases tab
+ * Download the latest version of Vigembus from https://github.com/ViGEm/ViGEmBus/releases
+ * Run the program
+ 
 There are currently 2 main modes.
 
 Mode 1 - Ringcon purist/Minimal controller: Tick "Combine JoyCons" then push start. This will set up a minimal controller where you hold the Ringcon in the normal orientation. Tilt the Ringcon forward and backward to go forward and backward. Rotate left or right like a steering wheel to move left or right. Light squeeze, heavy squeeze, light pull, heavy pull all correspond to main buttons.
