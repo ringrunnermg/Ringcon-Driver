@@ -5,6 +5,7 @@ Play your favourite PC games with Nintendos impressive Ring fit controller syste
 # Installing the software
  * Download the latest version from the releases tab
  * Download the latest version of Vigembus from https://github.com/ViGEm/ViGEmBus/releases
+ * Connect the controllers (info below)
  * Run the program
  
 There are currently 2 main modes.
