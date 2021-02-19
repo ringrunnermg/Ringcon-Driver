@@ -21,6 +21,7 @@ At any point you can check or uncheck "Run unlocks gyro" which locks the Ringcon
  * Go to the bluetooth settings on Windows 10 and add a device. The controller should show up as "Joycon(L)" or "Joycon(R)"
  * Make sure the Joycon shows up in the bluetooth settings as connected, the lights should still be flashing (This seems to be where windows 7 falls over... Note: The Ringcon Driver does not work on windows 7)
  * Connect the other controller, ensure you now have both controllers showing up under Bluetooth as connected.
+ * Connect the Ringcon
 
 # How to use!
  * Always leave the Ringcon driver running in the background.
