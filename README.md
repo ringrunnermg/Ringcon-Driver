@@ -3,7 +3,7 @@ Play your favourite PC games with Nintendos impressive Ring fit controller syste
 
 
 # Installing the software
- * Download the latest version from the releases tab https://github.com/ringrunnermg/Ringcon-Driver/releases/tag/1.0.0
+ * Download the latest version from the releases tab https://github.com/ringrunnermg/Ringcon-Driver/releases/tag/1.0.1
  * Download the latest version of Vigembus from https://github.com/ViGEm/ViGEmBus/releases and install it
  * Connect the controllers (info below) 
  * Run the program, this should set up a virtual x360 controller on your computer.
