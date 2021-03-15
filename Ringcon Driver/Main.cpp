@@ -94,16 +94,12 @@ float squatmousemult = 1; //Slow down mouse movement depending on how far you sq
 
 bool p1ready = false;
 bool p2ready = false;
-bool p3ready = false;
-bool p4ready = false; //These are to ensure the L and R buttons are ready before sending to the right controller (combined joycons option only)
 
 //Init VigEm
 const auto client = vigem_alloc();
 const auto retval = vigem_connect(client);
 PVIGEM_TARGET pad1 = 0;
 PVIGEM_TARGET pad2 = 0;
-PVIGEM_TARGET pad3 = 0;
-PVIGEM_TARGET pad4 = 0;
 XUSB_REPORT report;
 WORD remappedbtnsr=0;
 WORD remappedbtnsl=0;
@@ -188,7 +184,7 @@ struct Settings {
 	// string to send:
 	std::string controllerState = "";
 	// Use Ringcon with full set of buttons, left handed:
-	bool RingconFullLH = false;
+	bool RingconToAnalog = false;
 
 	// poll options:
 
@@ -202,7 +198,7 @@ struct Settings {
 	float timeToSleepMS = 4.0f;
 
 	// version number
-	std::string version = "1.00";
+	std::string version = "1.01";
 
 } settings;
 
@@ -423,7 +419,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 				Ringcon = prevRingcon;
 			}
 
-			if (settings.RingconFullRH || settings.RingconFullLH) { //The sensor readings change if it is being held sideways
+			if (settings.RingconFullRH) { //The sensor readings change if it is being held sideways
 				if (Ringcon == 0x0A || Ringcon == 0x09 || Ringcon == 0x08 || Ringcon == 0x07) { //Deadzone
 					ringconcounter = 0;
 				}
@@ -755,11 +751,7 @@ void updateVigEmDevice2(Joycon* jc) {
 			sThumbRX = -MaxStick * (jc->stick.CalX);
 			sThumbRY = -MaxStick * (jc->stick.CalY);
 		}
-		else if (settings.RingconFullLH) {
-			sThumbRX = MaxStick * (jc->stick.CalX);
-			sThumbRY = MaxStick * (jc->stick.CalY);
-		}
-		else {
+		else if (!settings.RingconToAnalog) {
 			sThumbRY = -MaxStick * (jc->stick.CalX);
 			sThumbRX = MaxStick * (jc->stick.CalY);
 		}
@@ -1004,6 +996,10 @@ void updateVigEmDevice2(Joycon* jc) {
 			roll = 0; //Deadzone
 		}
 
+		if (settings.RingconToAnalog) {
+			sThumbRY = ((Ringcon - 10) * 3276);
+		}
+
 		if (Ringcon == 0x0A || Ringcon == 0x09 || Ringcon == 0x08 || Ringcon == 0x0B) { //Deadzone
 			Ringcon = 10;
 		}
@@ -1191,8 +1187,12 @@ void updateVigEmDevice2(Joycon* jc) {
 	}
 	else {
 		report.wButtons = remappedbtns;
-		report.sThumbLX = sThumbLX;
-		report.sThumbLY = sThumbLY;
+		report.sThumbLX = sThumbLY;
+		report.sThumbLY = -sThumbLX;
+		if (settings.RingconToAnalog || settings.RingconFullRH) {
+			report.sThumbRX = sThumbRX;
+			report.sThumbRY = sThumbRY;
+		}
 	}
 
 	//Send data to Vigem
@@ -1222,34 +1222,6 @@ void updateVigEmDevice2(Joycon* jc) {
 		}
 		else {
 			vigem_target_x360_update(client, pad2, report);
-		}//Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc.
-	}
-	if (jc->VigemNumber == 3) {
-		if (settings.combineJoyCons) {
-			if (p3ready) {
-				vigem_target_x360_update(client, pad3, report);
-				p3ready = !p3ready;
-			}
-			else {
-				p3ready = !p3ready;
-			}
-		}
-		else {
-			vigem_target_x360_update(client, pad3, report);
-		}//Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc.
-	}
-	if (jc->VigemNumber == 4) {
-		if (settings.combineJoyCons) {
-			if (p4ready) {
-				vigem_target_x360_update(client, pad4, report);
-				p4ready = !p4ready;
-			}
-			else {
-				p4ready = !p4ready;
-			}
-		}
-		else {
-			vigem_target_x360_update(client, pad4, report);
 		}//Client is universal for all pads. Pad is different depending on whether this is p1 controller, p2 controller etc.
 	}
 }
@@ -1291,7 +1263,7 @@ void parseSettings2() {
 
 	settings.RingconFullRH = (bool)stoi(cfg["ringconfullrh"]);
 	settings.host = cfg["host"];
-	settings.RingconFullLH = (bool)stoi(cfg["ringconfulllh"]);
+	settings.RingconToAnalog = (bool)stoi(cfg["ringcontoanalog"]);
 
 	settings.autoStart = (bool)stoi(cfg["autoStart"]);
 
@@ -1437,14 +1409,6 @@ init_start:
 		if (joycons[i].VigemNumber == 2 && joycons[i].deviceNumber == 0) {
 			pad2 = vigem_target_x360_alloc();
 			const auto pir2 = vigem_target_add(client, pad2);
-		}
-		if (joycons[i].VigemNumber == 3 && joycons[i].deviceNumber == 0) {
-			pad3 = vigem_target_x360_alloc();
-			const auto pir3 = vigem_target_add(client, pad3);
-		}
-		if (joycons[i].VigemNumber == 4 && joycons[i].deviceNumber == 0) {
-			pad4 = vigem_target_x360_alloc();
-			const auto pir4 = vigem_target_add(client, pad4);
 		}
 	}
 
@@ -1920,7 +1884,7 @@ init_start:
 
 	printf("Done.\n");
 
-	if (settings.RingconFullRH || settings.RingconFullLH) {
+	if (settings.RingconFullRH) {
 		printf("\n CAUTION: Do not use heavy press when the Ringcon is sideways. It may damage the flex sensor.");
 	};
 
@@ -1938,18 +1902,13 @@ void actuallyQuit() {
 	vigem_target_free(pad1);
 	vigem_target_remove(client, pad2);
 	vigem_target_free(pad2);
-	vigem_target_remove(client, pad3);
-	vigem_target_free(pad3);
-	vigem_target_remove(client, pad4);
-	vigem_target_free(pad4);
-
 	vigem_disconnect(client);
 	vigem_free(client);
-
+	/*
 	for (int i = 0; i < joycons.size(); ++i) {
 		buf[0] = 0x0; // disconnect
 		joycons[i].send_subcommand(0x01, 0x06, buf, 1);
-	}
+	}*/
 
 	if (settings.usingGrip) {
 		for (int i = 0; i < joycons.size(); ++i) {
@@ -2105,9 +2064,9 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, wxT("Ringcon Driver by RingRunn
 	CB15->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconFullRH, this);
 	CB15->SetValue(settings.RingconFullRH);
 
-	CB16 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon Full LH"), FromDIP(wxPoint(20, 180)));
-	CB16->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconFullLH, this);
-	CB16->SetValue(settings.RingconFullLH);
+	CB16 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon to Analog Stick"), FromDIP(wxPoint(20, 180)));
+	CB16->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconToAnalog, this);
+	CB16->SetValue(settings.RingconToAnalog);
 
 
 	gyroComboCodeText = new wxStaticText(panel, wxID_ANY, wxT("Gyro Combo Code: "), FromDIP(wxPoint(20, 270)));
@@ -2239,8 +2198,8 @@ void MainFrame::toggleRingconFullRH(wxCommandEvent&) {
 	settings.RingconFullRH = !settings.RingconFullRH;
 }
 
-void MainFrame::toggleRingconFullLH(wxCommandEvent&) {
-	settings.RingconFullLH = !settings.RingconFullLH;
+void MainFrame::toggleRingconToAnalog(wxCommandEvent&) {
+	settings.RingconToAnalog = !settings.RingconToAnalog;
 }
 
 void setGyroComboCodeText(int code) {

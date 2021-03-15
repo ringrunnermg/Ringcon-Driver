@@ -164,7 +164,7 @@ public:
 
 
 	void toggleRingconFullRH(wxCommandEvent&);
-	void toggleRingconFullLH(wxCommandEvent&);
+	void toggleRingconToAnalog(wxCommandEvent&);
 
 
 	//void checkForUpdate();
