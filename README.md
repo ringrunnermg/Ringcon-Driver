@@ -30,7 +30,7 @@ At any point you can check or uncheck "Run unlocks gyro" which locks the Ringcon
 
 # Ringcon to X360 controller mapping
 Mode 1 and Mode 2
- * Ringcon tilt = Right analog stick
+ * Ringcon tilt/rotate = Left analog stick
  * Ringcon light press = Right shoulder button
  * Ringcon light pull = Left shoulder button
  * Ringcon heavy press = Right trigger
@@ -50,7 +50,7 @@ Mode 2 (Ringcon Full RH)
  * Joycon X = x360 A
  * Joycon A = x360 X
  * Joycon B = x360 Y
- * Joycon analog stick = x360 left analog stick
+ * Joycon analog stick = x360 right analog stick
  * Joycon Zr (trigger) = Right trigger (the alternative for heavy press)
 
 # Acknowledgements
