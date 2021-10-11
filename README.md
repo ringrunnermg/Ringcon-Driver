@@ -66,7 +66,7 @@ RINGCON/STRAPCON OPTIONS:
 * **Ringcon to Analog Stick**: Allows the user to control the virtual X360 right stick Y axis with the Ringcon push/pull functionality. Used in the Ringcordian. https://github.com/ressium/Ringcordion
 * **Squat Slow Gyro**: This allows more precise control of the left analog stick that is controlled by the Ringcon movement. The more you squat, the less the stick moves in the direction of the Ringcon. This can also be used to temporarily turn off the "Run unlocks Gyro" option which is especially useful in menus, simply squat (or lift your leg) and the Ringcon unlocks for much easier menu navigation.
 * **Run Presses Button**: Originally running would press a button on the controller by default, now it does not unless you check this button. For games like Skyrim where you are forced to assign every button to an action, this was an issue. Note: This is for run only, sprint is always assigned to a button.
-* **Ringcon Fix**: The command window now shows the current value of the Ringcon sensor. The default when it is not being pressed should be between around 10 (give or take). If it is showing around 0 and goes in to the negatives when it is pulled (as some users have found) then this checkbox may fix that issue. Note: This is untested.
+* **Ringcon Fix**: The command window now shows the current value of the Ringcon sensor. The default when it is not being pressed should be around 10 (give or take). If it is showing around 0 and goes in to the negatives when it is pulled (as some users have found) then this checkbox may fix that issue. Note: This is untested.
 
 JOYCON OPTIONS:
 Refer to the original Joycon Driver (https://github.com/mfosse/JoyCon-Driver) for details.
