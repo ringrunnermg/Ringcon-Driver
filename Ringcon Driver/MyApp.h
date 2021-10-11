@@ -154,8 +154,8 @@ public:
 	void toggleInvertQuickToggle(wxCommandEvent&);
 	void toggleDolphinPointerMode(wxCommandEvent&);
 
-	void toggleDebugMode(wxCommandEvent&);
-	void toggleWriteDebug(wxCommandEvent&);
+	void toggleRunpressesbutton(wxCommandEvent&);
+	void toggleRingconFix(wxCommandEvent&);
 
 	void toggleRunUnlocksGyro(wxCommandEvent&);
 

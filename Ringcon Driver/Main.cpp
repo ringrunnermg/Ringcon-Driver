@@ -82,8 +82,9 @@ int ringconcounter = 0;
 int runningindex[runarraylength] = { 0 };
 int runvalue = 0;
 int squatvalue = 0;
-bool running = true;
+bool running = false;
 bool ringconattached = false;
+bool squatting = false;
 
 float validroll = 0.00;
 float validpitch = 0.00;
@@ -168,11 +169,11 @@ struct Settings {
 	// auto start the program
 	bool autoStart = false;
 
-	// debug mode
-	bool debugMode = false;
+	// Run presses button
+	bool Runpressesbutton = false;
 
-	// write debug to file:
-	bool writeDebugToFile = false;
+	// Some Ringcons zero at 255 instead of 10, this fixes that:
+	bool RingconFix = false;
 
 	// debug file:
 	FILE* outputFile;
@@ -195,10 +196,10 @@ struct Settings {
 	float pollsPerSec = 30.0f;
 
 	// time to sleep (in ms) between polls:
-	float timeToSleepMS = 4.0f;
+	float timeToSleepMS = 1.0f;
 
 	// version number
-	std::string version = "1.01";
+	std::string version = "1.02";
 
 } settings;
 
@@ -414,11 +415,22 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			//Ringcon logic - Default values - int prevringcon = 0x0A; int ringconcounter = 0;
 
 			Ringcon = packet[40];
-			
+
 			if (Ringcon == 0x00) { //The Ringcon reading has started randomly putting zero in to the reading, I must not be initializing it properly. This is a hack to get around that.
 				Ringcon = prevRingcon;
 			}
 
+			if (settings.RingconFix) {
+				Ringcon = Ringcon + 10;
+				if (Ringcon >= 100) {
+					Ringcon = Ringcon - 255;
+				}
+			}
+			
+			if (Ringcon != prevRingcon) {
+				printf("%i\n", Ringcon);
+			}
+			
 			if (settings.RingconFullRH) { //The sensor readings change if it is being held sideways
 				if (Ringcon == 0x0A || Ringcon == 0x09 || Ringcon == 0x08 || Ringcon == 0x07) { //Deadzone
 					ringconcounter = 0;
@@ -503,17 +515,6 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 		// left:
 		if (jc->left_right == 1) {
 
-			if (settings.debugMode) {
-				printf("U: %d D: %d L: %d R: %d LL: %d ZL: %d SB: %d SL: %d SR: %d M: %d C: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.up, jc->btns.down, jc->btns.left, jc->btns.right, jc->btns.l, jc->btns.zl, jc->btns.stick_button, jc->btns.sl, jc->btns.sr, \
-					jc->btns.minus, jc->btns.capture, (jc->stick.CalX + 1), (jc->stick.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
-			}
-			if (settings.writeDebugToFile) {
-				fprintf(settings.outputFile, "U: %d D: %d L: %d R: %d LL: %d ZL: %d SB: %d SL: %d SR: %d M: %d C: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.up, jc->btns.down, jc->btns.left, jc->btns.right, jc->btns.l, jc->btns.zl, jc->btns.stick_button, jc->btns.sl, jc->btns.sr, \
-					jc->btns.minus, jc->btns.capture, (jc->stick.CalX + 1), (jc->stick.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
-			}
-
 			// Determine whether the left joycon is telling us we are running
 			runningindex[runvalue % runarraylength] = jc->gyro.pitch;
 			runvalue++;
@@ -533,7 +534,9 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			//printf("%i\n", average); //walk 0-1, jog 1-2, run 2-3, sprint 3-4
 			if (average > 0) {
 				running = true;
-				jc->buttons |= 1U << 4; //sr = run
+				if (settings.Runpressesbutton) {
+					jc->buttons |= 1U << 4; //sr = run
+				}
 			}
 			else {
 				running = false;
@@ -548,7 +551,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			//printf("%f", jc->accel.z); //9.8 when horizontal. 0 when vertical. Goes to minus when facing down or backwards.
 			if (jc->accel.z > 6.0 && jc->accel.z < 12.0) {
 				squatvalue++;
-				if (squatvalue >= 20) {
+				if (squatvalue >= 20 && !settings.squatSlowsMouse) {
 					jc->buttons |= 1U << 8; //jc->btns.minus = (jc->buttons & (1 << 8)) ? 1 : 0;
 				}
 			}
@@ -556,14 +559,25 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 				squatvalue = 0;
 			}
 
-			if (settings.squatSlowsMouse) {
-				if (jc->accel.z < 8.0) {
-					squatmousemult = 1 - (jc->accel.z * 0.1);
+			if (jc->accel.z > 2.0 && jc->accel.z < 12.0) {
+				squatting = true;
+			}
+			else {
+				squatting = false;
+			}
+
+			if (settings.squatSlowsMouse && !running) {
+				if (jc->accel.z <= 0.1) {
+					squatmousemult = 1;
+				}
+				else if (jc->accel.z >= 9.0) {
+					squatmousemult = 0.1;
 				}
 				else {
-					squatmousemult = 0;
+					squatmousemult = 1 - (jc->accel.z * 0.1);
 				}
-			} else {
+			}
+			else {
 				squatmousemult = 1;
 			}
 
@@ -619,19 +633,6 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 
 			if (heavypull == true) {
 				jc->buttons |= 1U << 6;
-			}
-
-
-
-			if (settings.debugMode) {
-				printf("A: %d B: %d X: %d Y: %d RR: %d ZR: %d SB: %d SL: %d SR: %d P: %d H: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.a, jc->btns.b, jc->btns.x, jc->btns.y, jc->btns.r, jc->btns.zr, jc->btns.stick_button, jc->btns.sl, jc->btns.sr, \
-					jc->btns.plus, jc->btns.home, (jc->stick.CalX + 1), (jc->stick.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
-			}
-			if (settings.writeDebugToFile) {
-				fprintf(settings.outputFile, "A: %d B: %d X: %d Y: %d RR: %d ZR: %d SB: %d SL: %d SR: %d P: %d H: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.a, jc->btns.b, jc->btns.x, jc->btns.y, jc->btns.r, jc->btns.zr, jc->btns.stick_button, jc->btns.sl, jc->btns.sr, \
-					jc->btns.plus, jc->btns.home, (jc->stick.CalX + 1), (jc->stick.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
 			}
 
 			//Mouse buttons
@@ -697,30 +698,7 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 			jc->btns.stick_button2 = (jc->buttons2 & (1 << 10)) ? 1 : 0;
 			jc->btns.home = (jc->buttons2 & (1 << 12)) ? 1 : 0;
 
-
-			if (settings.debugMode) {
-
-				printf("U: %d D: %d L: %d R: %d LL: %d ZL: %d SB: %d SL: %d SR: %d M: %d C: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.up, jc->btns.down, jc->btns.left, jc->btns.right, jc->btns.l, jc->btns.zl, jc->btns.stick_button, jc->btns.sl, jc->btns.sr, \
-					jc->btns.minus, jc->btns.capture, (jc->stick.CalX + 1), (jc->stick.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
-
-				printf("A: %d B: %d X: %d Y: %d RR: %d ZR: %d SB: %d SL: %d SR: %d P: %d H: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.a, jc->btns.b, jc->btns.x, jc->btns.y, jc->btns.r, jc->btns.zr, jc->btns.stick_button2, jc->btns.sl, jc->btns.sr, \
-					jc->btns.plus, jc->btns.home, (jc->stick2.CalX + 1), (jc->stick2.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
-			}
-
-			if (settings.writeDebugToFile) {
-				fprintf(settings.outputFile, "U: %d D: %d L: %d R: %d LL: %d ZL: %d SB: %d SL: %d SR: %d M: %d C: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.up, jc->btns.down, jc->btns.left, jc->btns.right, jc->btns.l, jc->btns.zl, jc->btns.stick_button, jc->btns.sl, jc->btns.sr, \
-					jc->btns.minus, jc->btns.capture, (jc->stick.CalX + 1), (jc->stick.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
-
-				fprintf(settings.outputFile, "A: %d B: %d X: %d Y: %d RR: %d ZR: %d SB: %d SL: %d SR: %d P: %d H: %d SX: %.5f SY: %.5f GR: %06d GP: %06d GY: %06d\n", \
-					jc->btns.a, jc->btns.b, jc->btns.x, jc->btns.y, jc->btns.r, jc->btns.zr, jc->btns.stick_button2, jc->btns.sl, jc->btns.sr, \
-					jc->btns.plus, jc->btns.home, (jc->stick2.CalX + 1), (jc->stick2.CalY + 1), (int)jc->gyro.roll, (int)jc->gyro.pitch, (int)jc->gyro.yaw);
-			}
-
 		}
-
 	}
 }
 
@@ -737,10 +715,6 @@ void updateVigEmDevice2(Joycon* jc) {
 	DevID = jc->VigemNumber;
 	id = (BYTE)DevID;
 
-	if (DevID == 0 && settings.debugMode) {
-		printf("something went very wrong D:\n");
-	}
-
 	// Set Stick data
 	if (!settings.combineJoyCons) {
 		sThumbLX = MaxStick * (jc->stick.CalX);
@@ -751,7 +725,7 @@ void updateVigEmDevice2(Joycon* jc) {
 			sThumbRX = -MaxStick * (jc->stick.CalX);
 			sThumbRY = -MaxStick * (jc->stick.CalY);
 		}
-		else if (!settings.RingconToAnalog) {
+		else {
 			sThumbRY = -MaxStick * (jc->stick.CalX);
 			sThumbRX = MaxStick * (jc->stick.CalY);
 		}
@@ -801,6 +775,7 @@ void updateVigEmDevice2(Joycon* jc) {
 		//float gyroCoeff = .78; // Originally 0.001
 		float gyroCoeff = .78;
 
+		//Pitchdegrees accell = (glm::degrees((atan2(direction of pitch roll, - direction of gravity) + PI))) - 180;
 
 		// x:
 		float pitchDegreesAccel;
@@ -810,12 +785,12 @@ void updateVigEmDevice2(Joycon* jc) {
 		else {
 			pitchDegreesAccel = (glm::degrees((atan2(-jc->accel.z, -jc->accel.y) + PI))) - 180;
 		}
+
 		float pitchDegreesGyro = -jc->gyro.pitch * gyroCoeff;
 		float pitch = 0;
 		float pitchmult = 0;
 
 		tracker.anglex += pitchDegreesGyro; //~Max of 10 each way
-
 
 		pitchmult = abs(pitchDegreesGyro * 0.004) + 0.005; // The multiplier for the accelerometer. The more the gyro moves, the higher this is.
 
@@ -984,15 +959,20 @@ void updateVigEmDevice2(Joycon* jc) {
 		}
 
 		if (!running && settings.rununlocksgyro) {
-			mult = 0;
-			joymult = 0;
+			if (settings.squatSlowsMouse && squatting) {
+				//Ignore the run unlocks gyro
+			}
+			else {
+				mult = 0;
+				joymult = 0;
+			}
 		}
 
-		if ((pitch > -5) && (pitch < 5)) {
+		if ((pitch > -5) && (pitch < 5) && running) {
 			pitch = 0; //Deadzone
 		}
 
-		if ((roll > -5) && (roll < 5)) {
+		if ((roll > -5) && (roll < 5) && running) {
 			roll = 0; //Deadzone
 		}
 
@@ -1006,21 +986,21 @@ void updateVigEmDevice2(Joycon* jc) {
 
 		if (settings.combineJoyCons) {
 			if (ringconattached) {
-				sThumbLX = (roll * joymult);
+				sThumbLX = (roll * joymult * squatmousemult);
 				if (settings.RingconFullRH) {
-					sThumbLY = (yaw * joymult);
+					sThumbLY = (yaw * joymult * squatmousemult);
 				}
 				else {
-					sThumbLY = (pitch * joymult);
+					sThumbLY = (pitch * joymult * squatmousemult);
 				}
 			}
 			else {
-				sThumbLX = (yaw * joymult);
+				sThumbLX = (yaw * joymult * squatmousemult);
 				if (settings.RingconFullRH) {
-					sThumbLY = (pitch * joymult);
+					sThumbLY = (pitch * joymult * squatmousemult);
 				}
 				else {
-					sThumbLY = (roll * joymult);
+					sThumbLY = (roll * joymult * squatmousemult);
 				}
 				//report.wSlider = 16384 + ((Ringcon - 10) * 1640); No space on the controller for this. This is the analog version of the Ringcon.
 			}
@@ -1256,8 +1236,8 @@ void parseSettings2() {
 
 	settings.gyroscopeComboCode = stoi(cfg["gyroscopeComboCode"]);
 
-	settings.debugMode = (bool)stoi(cfg["debugMode"]);
-	settings.writeDebugToFile = (bool)stoi(cfg["writeDebugToFile"]);
+	settings.Runpressesbutton = (bool)stoi(cfg["runPressesButton"]);
+	settings.RingconFix = (bool)stoi(cfg["ringconfix"]);
 
 	settings.rununlocksgyro = (bool)stoi(cfg["rununlocksgyro"]);
 
@@ -2013,83 +1993,91 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, wxT("Ringcon Driver by RingRunn
 	CB7->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleReverseY, this);
 	CB7->SetValue(settings.reverseY);
 
-	gyroCheckBox = new wxCheckBox(panel, wxID_ANY, wxT("Gyro Controls Mouse"), FromDIP(wxPoint(20, 60)));
-	gyroCheckBox->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleGyro, this);
-	gyroCheckBox->SetValue(settings.enableGyro);
+	st1 = new wxStaticText(panel, wxID_ANY, wxT("RINGCON/STRAPCON OPTIONS"), FromDIP(wxPoint(20, 80)));
 
-	CB4 = new wxCheckBox(panel, wxID_ANY, wxT("Squat Slows Mouse"), FromDIP(wxPoint(190, 60)));
-	CB4->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleSquatSlowsMouse, this);
-	CB4->SetValue(settings.squatSlowsMouse);
-	CB8 = new wxCheckBox(panel, wxID_ANY, wxT("Prefer Left JoyCon for Gyro Controls"), FromDIP(wxPoint(20, 80)));
-	CB8->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::togglePreferLeftJoyCon, this);
-	CB8->SetValue(settings.preferLeftJoyCon);
-	CB12 = new wxCheckBox(panel, wxID_ANY, wxT("Quick Toggle Gyro Controls"), FromDIP(wxPoint(20, 100)));
-	CB12->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleQuickToggleGyro, this);
-	CB12->SetValue(settings.quickToggleGyro);
-	CB13 = new wxCheckBox(panel, wxID_ANY, wxT("Invert Quick Toggle"), FromDIP(wxPoint(190, 100)));
-	CB13->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleInvertQuickToggle, this);
-	CB13->SetValue(settings.invertQuickToggle);
-
-	CB5 = new wxCheckBox(panel, wxID_ANY, wxT("Mario Theme"), FromDIP(wxPoint(20, 120)));
-	CB5->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleMario, this);
-	CB5->SetValue(settings.marioTheme);
-	CB14 = new wxCheckBox(panel, wxID_ANY, wxT("Dolphin Mode"), FromDIP(wxPoint(190, 120)));
-	CB14->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleDolphinPointerMode, this);
-	//CB14->SetValue(settings.dolphinPointerMode);
-
-	CB9 = new wxCheckBox(panel, wxID_ANY, wxT("Debug Mode"), FromDIP(wxPoint(20, 140)));
-	CB9->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleDebugMode, this);
-	CB9->SetValue(settings.debugMode);
-
-	CB10 = new wxCheckBox(panel, wxID_ANY, wxT("Write Debug To File"), FromDIP(wxPoint(190, 140)));
-	CB10->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleWriteDebug, this);
-	CB10->SetValue(settings.debugMode);
-
-	CB11 = new wxCheckBox(panel, wxID_ANY, wxT("Run Unlocks Gyro"), FromDIP(wxPoint(20, 160)));
-	CB11->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRunUnlocksGyro, this);
-	CB11->SetValue(settings.rununlocksgyro);
-
-
-	slider1Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity X"), FromDIP(wxPoint(20, 200)));
-	st1 = new wxStaticText(panel, wxID_ANY, wxT("(Also the sensitivity for Rz/sl0/sl1)"), FromDIP(wxPoint(40, 220)));
-	slider1 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityX, -1000, 1000, FromDIP(wxPoint(180, 180)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
-	slider1->Bind(wxEVT_SLIDER, &MainFrame::setGyroSensitivityX, this);
-
-
-	slider2Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity Y"), FromDIP(wxPoint(20, 240)));
-	slider2 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityY, -1000, 1000, FromDIP(wxPoint(180, 220)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
-	slider2->Bind(wxEVT_SLIDER, &MainFrame::setGyroSensitivityY, this);
-
-	CB15 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon Full RH"), FromDIP(wxPoint(190, 160)));
+	CB15 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon Full RH"), FromDIP(wxPoint(20, 100)));
 	CB15->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconFullRH, this);
 	CB15->SetValue(settings.RingconFullRH);
 
-	CB16 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon to Analog Stick"), FromDIP(wxPoint(20, 180)));
+	CB4 = new wxCheckBox(panel, wxID_ANY, wxT("Squat Slows Gyro"), FromDIP(wxPoint(190, 100)));
+	CB4->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleSquatSlowsMouse, this);
+	CB4->SetValue(settings.squatSlowsMouse);
+
+	CB11 = new wxCheckBox(panel, wxID_ANY, wxT("Run Unlocks Gyro"), FromDIP(wxPoint(20, 120)));
+	CB11->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRunUnlocksGyro, this);
+	CB11->SetValue(settings.rununlocksgyro);
+
+	CB9 = new wxCheckBox(panel, wxID_ANY, wxT("Run Presses Button"), FromDIP(wxPoint(190, 120)));
+	CB9->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRunpressesbutton, this);
+	CB9->SetValue(settings.Runpressesbutton);
+
+	CB16 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon to Analog Stick"), FromDIP(wxPoint(20, 140)));
 	CB16->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconToAnalog, this);
 	CB16->SetValue(settings.RingconToAnalog);
 
+	CB10 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon Fix"), FromDIP(wxPoint(190, 140)));
+	CB10->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconFix, this);
+	CB10->SetValue(settings.RingconFix);
 
-	gyroComboCodeText = new wxStaticText(panel, wxID_ANY, wxT("Gyro Combo Code: "), FromDIP(wxPoint(20, 270)));
+	st1 = new wxStaticText(panel, wxID_ANY, wxT("JOYCON OPTIONS"), FromDIP(wxPoint(20, 180)));
 
-	st1 = new wxStaticText(panel, wxID_ANY, wxT("Change the default settings and more in the config file!"), FromDIP(wxPoint(20, 300)));
+	gyroCheckBox = new wxCheckBox(panel, wxID_ANY, wxT("Gyro Controls Mouse"), FromDIP(wxPoint(20, 200)));
+	gyroCheckBox->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleGyro, this);
+	gyroCheckBox->SetValue(settings.enableGyro);
+
+	CB12 = new wxCheckBox(panel, wxID_ANY, wxT("Quick Toggle Gyro Controls"), FromDIP(wxPoint(190, 200)));
+	CB12->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleQuickToggleGyro, this);
+	CB12->SetValue(settings.quickToggleGyro);
+
+	CB13 = new wxCheckBox(panel, wxID_ANY, wxT("Invert Quick Toggle"), FromDIP(wxPoint(20, 220)));
+	CB13->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleInvertQuickToggle, this);
+	CB13->SetValue(settings.invertQuickToggle);
+
+	CB5 = new wxCheckBox(panel, wxID_ANY, wxT("Mario Theme"), FromDIP(wxPoint(190, 220)));
+	CB5->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleMario, this);
+	CB5->SetValue(settings.marioTheme);
+
+	CB8 = new wxCheckBox(panel, wxID_ANY, wxT("Prefer Left JoyCon for Gyro Controls"), FromDIP(wxPoint(20, 240)));
+	CB8->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::togglePreferLeftJoyCon, this);
+	CB8->SetValue(settings.preferLeftJoyCon);
+
+	//CB14 = new wxCheckBox(panel, wxID_ANY, wxT("Dolphin Mode"), FromDIP(wxPoint(190, 120)));
+	//CB14->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleDolphinPointerMode, this);
+	//CB14->SetValue(settings.dolphinPointerMode);
+
+	slider1Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity X"), FromDIP(wxPoint(20, 280)));
+	slider1 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityX, -1000, 1000, FromDIP(wxPoint(180, 260)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
+	slider1->Bind(wxEVT_SLIDER, &MainFrame::setGyroSensitivityX, this);
+
+
+	slider2Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity Y"), FromDIP(wxPoint(20, 320)));
+	slider2 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityY, -1000, 1000, FromDIP(wxPoint(180, 300)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
+	slider2->Bind(wxEVT_SLIDER, &MainFrame::setGyroSensitivityY, this);
+
+
+
+
+	gyroComboCodeText = new wxStaticText(panel, wxID_ANY, wxT("Gyro Combo Code: "), FromDIP(wxPoint(20, 300)));
+
+	st1 = new wxStaticText(panel, wxID_ANY, wxT("Change the default settings and more in the config file!"), FromDIP(wxPoint(20, 340)));
 
 	//wxString version;
 	//version.Printf("JoyCon-Driver version %s\n", settings.version);
 	//st2 = new wxStaticText(panel, wxID_ANY, version, FromDIP(wxPoint(20, 330)));
 
-	startButton = new wxButton(panel, wxID_EXIT, wxT("Start"), FromDIP(wxPoint(150, 360)));
+	startButton = new wxButton(panel, wxID_EXIT, wxT("Start"), FromDIP(wxPoint(150, 380)));
 	startButton->Bind(wxEVT_BUTTON, &MainFrame::onStart, this);
 
-	quitButton = new wxButton(panel, wxID_EXIT, wxT("Quit"), FromDIP(wxPoint(250, 360)));
+	quitButton = new wxButton(panel, wxID_EXIT, wxT("Quit"), FromDIP(wxPoint(250, 380)));
 	quitButton->Bind(wxEVT_BUTTON, &MainFrame::onQuit, this);
 
-	updateButton = new wxButton(panel, wxID_EXIT, wxT("Check for update"), FromDIP(wxPoint(18, 360)));
+	//updateButton = new wxButton(panel, wxID_EXIT, wxT("Check for update"), FromDIP(wxPoint(18, 360)));
 	//updateButton->Bind(wxEVT_BUTTON, &MainFrame::onUpdate, this);
 
-	donateButton = new wxButton(panel, wxID_EXIT, wxT("Donate"), FromDIP(wxPoint(250, 325)));
+	donateButton = new wxButton(panel, wxID_EXIT, wxT("Donate"), FromDIP(wxPoint(50, 380)));
 	donateButton->Bind(wxEVT_BUTTON, &MainFrame::onDonate, this);
 
-	(SetClientSize(FromDIP(350), FromDIP(400)));
+	(SetClientSize(FromDIP(360), FromDIP(420)));
 	Show();
 
 	//checkForUpdate();
@@ -2163,23 +2151,12 @@ void MainFrame::toggleDolphinPointerMode(wxCommandEvent&) {
 	//settings.dolphinPointerMode = !settings.dolphinPointerMode;
 }
 
-void MainFrame::toggleDebugMode(wxCommandEvent&) {
-	settings.debugMode = !settings.debugMode;
+void MainFrame::toggleRunpressesbutton(wxCommandEvent&) {
+	settings.Runpressesbutton = !settings.Runpressesbutton;
 }
 
-void MainFrame::toggleWriteDebug(wxCommandEvent&) {
-	settings.writeDebugToFile = !settings.writeDebugToFile;
-	// find a debug file to output to:
-
-	if (settings.writeDebugToFile) {
-		/*int fileNumber = 0;
-		std::string name = std::string("output-") + std::to_string(fileNumber) + std::string(".txt");
-		while (exists_test0(name)) {
-			fileNumber += 1;
-			name = std::string("output-") + std::to_string(fileNumber) + std::string(".txt");
-		}
-		settings.outputFile = fopen(name.c_str(), "w");*/
-	}
+void MainFrame::toggleRingconFix(wxCommandEvent&) {
+	settings.RingconFix = !settings.RingconFix;
 }
 
 void MainFrame::toggleRunUnlocksGyro(wxCommandEvent&) {
