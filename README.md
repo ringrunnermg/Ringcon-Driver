@@ -3,7 +3,7 @@ Play your favourite PC games with Nintendos impressive Ring fit controller syste
 
 
 # Installing the software
- * Download the latest version from the releases tab https://github.com/ringrunnermg/Ringcon-Driver/releases/tag/1.0.1
+ * Download the latest version from the releases tab https://github.com/ringrunnermg/Ringcon-Driver/releases/tag/1.0.2
  * Download the latest version of Vigembus from https://github.com/ViGEm/ViGEmBus/releases and install it
  * Connect the controllers (info below) 
  * Run the program, this should set up a virtual x360 controller on your computer.
@@ -52,6 +52,24 @@ Mode 2 (Ringcon Full RH)
  * Joycon B = x360 Y
  * Joycon analog stick = x360 right analog stick
  * Joycon Zr (trigger) = Right trigger (the alternative for heavy press)
+
+# Program details
+![Ringcon Driver 11-10-2021](https://user-images.githubusercontent.com/75189281/136767391-f8424c98-34aa-4192-b659-4179aaadf7d4.png)
+
+* **Combine JoyCons**: Combines both Joycons into one X360 controller. 
+* **Reverse Stick X**: Reverses axis when joycons are not combined.
+* **Reverse Stick Y**: Reverses axis when joycons are not combined.
+
+RINGCON/STRAPCON OPTIONS:
+* **Ringcon Full RH**: Refer to "Mode 2" details.
+* **Run Unlocks Gyro**: In this case "Gyro" refers to the left analog stick of the virtual X360 controller. With this checked, you have to run or else tilting the Ringcon does nothing.
+* **Ringcon to Analog Stick**: Allows the user to control the virtual X360 right stick Y axis with the Ringcon push/pull functionality. Used in the Ringcordian. https://github.com/ressium/Ringcordion
+* **Squat Slow Gyro**: This allows more precise control of the left analog stick that is controlled by the Ringcon movement. The more you squat, the less the stick moves in the direction of the Ringcon. This can also be used to temporarily turn off the "Run unlocks Gyro" option which is especially useful in menus, simply squat (or lift your leg) and the Ringcon unlocks for much easier menu navigation.
+* **Run Presses Button**: Originally running would press a button on the controller by default, now it does not unless you check this button. For games like Skyrim where you are forced to assign every button to an action, this was an issue. Note: This is for run only, sprint is always assigned to a button.
+* **Ringcon Fix**: The command window now shows the current value of the Ringcon sensor. The default when it is not being pressed should be between around 10 (give or take). If it is showing around 0 and goes in to the negatives when it is pulled (as some users have found) then this checkbox may fix that issue. Note: This is untested.
+
+JOYCON OPTIONS:
+Refer to the original Joycon Driver (https://github.com/mfosse/JoyCon-Driver) for details.
 
 # Acknowledgements
 - [mfosse](https://github.com/mfosse/JoyCon-Driver) As this is based on the Joycon Driver by mfosse it would be rude not to point him out first 
