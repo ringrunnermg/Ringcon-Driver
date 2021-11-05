@@ -3,7 +3,7 @@ Play your favourite PC games with Nintendos impressive Ring fit controller syste
 
 
 # Installing the software
- * Download the latest version from the releases tab https://github.com/ringrunnermg/Ringcon-Driver/releases/tag/1.0.2
+ * Download the latest version from the releases tab https://github.com/ringrunnermg/Ringcon-Driver/releases/tag/1.0.3
  * Download the latest version of Vigembus from https://github.com/ViGEm/ViGEmBus/releases and install it
  * Connect the controllers (info below) 
  * Run the program, this should set up a virtual x360 controller on your computer.
@@ -15,6 +15,7 @@ Mode 1 - Ringcon purist/Minimal controller: Tick "Combine JoyCons" then push sta
 Mode 2 - Full controller mode: Tick "Combine JoyCons" and "Ringcon Full RH" then push start. In this mode you hold the Ringcon sideways so you can access the buttons and stick on the Joycon with your right hand. The Ringcon tilting/rotating still controls the left stick of the virtual x360 controller, the analog stick on the Joycon controls the right analog stick. The buttons on the Joycon are usable as well as squat, run and sprint. Note: DO NOT USE HEAVY PRESS IN THIS CONFIGURATION. I have disabled it as it goes outside Nintendos limits and may damage the Ringcon. Be careful. You have been warned.
 
 At any point you can check or uncheck "Run unlocks gyro" which locks the Ringcon gyro (usually used for character movement) unless you are running.
+"Squat slows gyro" is also a useful setting. It adds accuracy to the Ringcon motion controls by slowing them down (the more you squat the slower they go) as well as temporarily disabling the "Run unlocks gyro" option. This works great for menus in game, simply squat or lift your leg and you can use the menu without jogging/bouncing around.
 
 # Connecting and Disconnecting the Controllers
  * Hold down the bluetooth button on the controller until the lights start flashing.
@@ -54,7 +55,8 @@ Mode 2 (Ringcon Full RH)
  * Joycon Zr (trigger) = Right trigger (the alternative for heavy press)
 
 # Program details
-![Ringcon Driver 11-10-2021](https://user-images.githubusercontent.com/75189281/136767391-f8424c98-34aa-4192-b659-4179aaadf7d4.png)
+![Ringcon Driver 05-11-2021](https://user-images.githubusercontent.com/75189281/140483402-57fec14c-95b2-442f-b0b8-adad931105dc.PNG)
+
 
 * **Combine JoyCons**: Combines both Joycons into one X360 controller. 
 * **Reverse Stick X**: Reverses axis when joycons are not combined.
@@ -66,7 +68,7 @@ RINGCON/STRAPCON OPTIONS:
 * **Ringcon to Analog Stick**: Allows the user to control the virtual X360 right stick Y axis with the Ringcon push/pull functionality. Used in the Ringcordian. https://github.com/ressium/Ringcordion
 * **Squat Slow Gyro**: This allows more precise control of the left analog stick that is controlled by the Ringcon movement. The more you squat, the less the stick moves in the direction of the Ringcon. This can also be used to temporarily turn off the "Run unlocks Gyro" option which is especially useful in menus, simply squat (or lift your leg) and the Ringcon unlocks for much easier menu navigation.
 * **Run Presses Button**: Originally running would press a button on the controller by default, now it does not unless you check this button. For games like Skyrim where you are forced to assign every button to an action, this was an issue. Note: This is for run only, sprint is always assigned to a button.
-* **Ringcon Fix**: The command window now shows the current value of the Ringcon sensor. The default when it is not being pressed should be around 10 (give or take). If it is showing around 0 and goes in to the negatives when it is pulled (as some users have found) then this checkbox may fix that issue. Note: This is untested.
+* **Ringcon Fix**: The command window now shows the current value of the Ringcon sensor. The default when it is not being pressed should be around 10 (give or take, 9 and 11 are ok). If it is not showing these values when it is not being pressed or pulled, then move the slider to correct the value. Once you find the value that works for you then it would be worth changing the "ringconfix" option in the config.txt file so you do not need to adjust it every time.
 
 JOYCON OPTIONS:
 Refer to the original Joycon Driver (https://github.com/mfosse/JoyCon-Driver) for details.
