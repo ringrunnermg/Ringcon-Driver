@@ -172,8 +172,8 @@ struct Settings {
 	// Run presses button
 	bool Runpressesbutton = false;
 
-	// Some Ringcons zero at 255 instead of 10, this fixes that:
-	bool RingconFix = false;
+	// Some Ringcons do not default to 10 when not being flexed. This is a manual adjustment to make it happen:
+	float RingconFix = 0.0f;
 
 	// debug file:
 	FILE* outputFile;
@@ -199,7 +199,7 @@ struct Settings {
 	float timeToSleepMS = 1.0f;
 
 	// version number
-	std::string version = "1.02";
+	std::string version = "1.03";
 
 } settings;
 
@@ -420,11 +420,10 @@ void handle_input(Joycon* jc, uint8_t* packet, int len) {
 				Ringcon = prevRingcon;
 			}
 
-			if (settings.RingconFix) {
-				Ringcon = Ringcon + 10;
-				if (Ringcon >= 100) {
-					Ringcon = Ringcon - 255;
-				}
+			Ringcon = Ringcon + settings.RingconFix;
+
+			if (Ringcon >= 100) {
+				Ringcon = Ringcon - 255;
 			}
 			
 			if (Ringcon != prevRingcon) {
@@ -2015,29 +2014,32 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, wxT("Ringcon Driver by RingRunn
 	CB16->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconToAnalog, this);
 	CB16->SetValue(settings.RingconToAnalog);
 
-	CB10 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon Fix"), FromDIP(wxPoint(190, 140)));
-	CB10->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconFix, this);
-	CB10->SetValue(settings.RingconFix);
+	//CB10 = new wxCheckBox(panel, wxID_ANY, wxT("Ringcon Fix"), FromDIP(wxPoint(20, 160)));
+	//CB10->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleRingconFix, this);
+	//CB10->SetValue(settings.RingconFix);
+	slider3Text = new wxStaticText(panel, wxID_ANY, wxT("Ringcon Fix - Aim for ~10 (9 and 11 OK)"), FromDIP(wxPoint(20, 160)));
+	slider3 = new wxSlider(panel, wxID_ANY, settings.RingconFix, -20, 20, FromDIP(wxPoint(180, 160)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
+	slider3->Bind(wxEVT_SLIDER, &MainFrame::setRingconFix, this);
 
-	st1 = new wxStaticText(panel, wxID_ANY, wxT("JOYCON OPTIONS"), FromDIP(wxPoint(20, 180)));
+	st1 = new wxStaticText(panel, wxID_ANY, wxT("JOYCON OPTIONS"), FromDIP(wxPoint(20, 200)));
 
-	gyroCheckBox = new wxCheckBox(panel, wxID_ANY, wxT("Gyro Controls Mouse"), FromDIP(wxPoint(20, 200)));
+	gyroCheckBox = new wxCheckBox(panel, wxID_ANY, wxT("Gyro Controls Mouse"), FromDIP(wxPoint(20, 220)));
 	gyroCheckBox->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleGyro, this);
 	gyroCheckBox->SetValue(settings.enableGyro);
 
-	CB12 = new wxCheckBox(panel, wxID_ANY, wxT("Quick Toggle Gyro Controls"), FromDIP(wxPoint(190, 200)));
+	CB12 = new wxCheckBox(panel, wxID_ANY, wxT("Quick Toggle Gyro Controls"), FromDIP(wxPoint(190, 220)));
 	CB12->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleQuickToggleGyro, this);
 	CB12->SetValue(settings.quickToggleGyro);
 
-	CB13 = new wxCheckBox(panel, wxID_ANY, wxT("Invert Quick Toggle"), FromDIP(wxPoint(20, 220)));
+	CB13 = new wxCheckBox(panel, wxID_ANY, wxT("Invert Quick Toggle"), FromDIP(wxPoint(20, 240)));
 	CB13->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleInvertQuickToggle, this);
 	CB13->SetValue(settings.invertQuickToggle);
 
-	CB5 = new wxCheckBox(panel, wxID_ANY, wxT("Mario Theme"), FromDIP(wxPoint(190, 220)));
+	CB5 = new wxCheckBox(panel, wxID_ANY, wxT("Mario Theme"), FromDIP(wxPoint(190, 240)));
 	CB5->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleMario, this);
 	CB5->SetValue(settings.marioTheme);
 
-	CB8 = new wxCheckBox(panel, wxID_ANY, wxT("Prefer Left JoyCon for Gyro Controls"), FromDIP(wxPoint(20, 240)));
+	CB8 = new wxCheckBox(panel, wxID_ANY, wxT("Prefer Left JoyCon for Gyro Controls"), FromDIP(wxPoint(20, 260)));
 	CB8->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::togglePreferLeftJoyCon, this);
 	CB8->SetValue(settings.preferLeftJoyCon);
 
@@ -2045,21 +2047,21 @@ MainFrame::MainFrame() : wxFrame(NULL, wxID_ANY, wxT("Ringcon Driver by RingRunn
 	//CB14->Bind(wxEVT_COMMAND_CHECKBOX_CLICKED, &MainFrame::toggleDolphinPointerMode, this);
 	//CB14->SetValue(settings.dolphinPointerMode);
 
-	slider1Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity X"), FromDIP(wxPoint(20, 280)));
-	slider1 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityX, -1000, 1000, FromDIP(wxPoint(180, 260)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
+	slider1Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity X"), FromDIP(wxPoint(20, 300)));
+	slider1 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityX, -1000, 1000, FromDIP(wxPoint(180, 280)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
 	slider1->Bind(wxEVT_SLIDER, &MainFrame::setGyroSensitivityX, this);
 
 
-	slider2Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity Y"), FromDIP(wxPoint(20, 320)));
-	slider2 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityY, -1000, 1000, FromDIP(wxPoint(180, 300)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
+	slider2Text = new wxStaticText(panel, wxID_ANY, wxT("Gyro Controls Sensitivity Y"), FromDIP(wxPoint(20, 340)));
+	slider2 = new wxSlider(panel, wxID_ANY, settings.gyroSensitivityY, -1000, 1000, FromDIP(wxPoint(180, 320)), FromDIP(wxSize(150, 20)), wxSL_LABELS);
 	slider2->Bind(wxEVT_SLIDER, &MainFrame::setGyroSensitivityY, this);
 
 
 
 
-	gyroComboCodeText = new wxStaticText(panel, wxID_ANY, wxT("Gyro Combo Code: "), FromDIP(wxPoint(20, 300)));
+	gyroComboCodeText = new wxStaticText(panel, wxID_ANY, wxT("Gyro Combo Code: "), FromDIP(wxPoint(20, 320)));
 
-	st1 = new wxStaticText(panel, wxID_ANY, wxT("Change the default settings and more in the config file!"), FromDIP(wxPoint(20, 340)));
+	// st1 = new wxStaticText(panel, wxID_ANY, wxT("Change the default settings and more in the config file!"), FromDIP(wxPoint(20, 340)));
 
 	//wxString version;
 	//version.Printf("JoyCon-Driver version %s\n", settings.version);
@@ -2155,8 +2157,8 @@ void MainFrame::toggleRunpressesbutton(wxCommandEvent&) {
 	settings.Runpressesbutton = !settings.Runpressesbutton;
 }
 
-void MainFrame::toggleRingconFix(wxCommandEvent&) {
-	settings.RingconFix = !settings.RingconFix;
+void MainFrame::setRingconFix(wxCommandEvent&) {
+	settings.RingconFix = slider3->GetValue();
 }
 
 void MainFrame::toggleRunUnlocksGyro(wxCommandEvent&) {

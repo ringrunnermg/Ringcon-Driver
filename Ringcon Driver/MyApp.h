@@ -120,8 +120,10 @@ public:
 
 	wxSlider* slider1;
 	wxSlider* slider2;
+	wxSlider* slider3;
 	wxStaticText* slider1Text;
 	wxStaticText* slider2Text;
+	wxStaticText* slider3Text;
 
 
 	wxButton* startButton;
@@ -161,6 +163,7 @@ public:
 
 	void setGyroSensitivityX(wxCommandEvent&);
 	void setGyroSensitivityY(wxCommandEvent&);
+	void setRingconFix(wxCommandEvent&);
 
 
 	void toggleRingconFullRH(wxCommandEvent&);
